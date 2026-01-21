@@ -1,0 +1,202 @@
+print("running beeswarm-test"); -- take idgaf
+function missing(t,f,fallback)if type(f) == t then return f; end;return fallback;end;
+cloneref = missing("function", cloneref, function(...) return ... end)
+
+local Players = cloneref(game:GetService("Players"));
+
+local ReplicatedStorage = cloneref(game:GetService("ReplicatedStorage"));
+
+local LocalPlayer = Players.LocalPlayer;
+
+if not ReplicatedStorage:FindFirstChild("Events") then return; end;
+
+local v_u_5 = require(ReplicatedStorage:WaitForChild("ClientStatCache"));
+
+local HoneyCombObjectValue = LocalPlayer:WaitForChild("Honeycomb");
+
+local MyHive = HoneyCombObjectValue.Value;
+
+local MinimumHoneyAmount = 600; -- if ur honey goes below this, script stops.
+
+local LoopWaitTime = 0.5; -- how long the script waits before starting again. Higher = better fps but slower script.
+
+local function getAvailableCell()
+
+	local Cells = MyHive.Cells;
+
+	for _,Cell in pairs(Cells:GetChildren()) do
+		if Cell:IsA("Model") and Cell:FindFirstChild("CellType") and Cell:FindFirstChild("Backplate") then
+
+			if Cell.CellType.Value == "Empty" then
+				return Cell;
+			end
+
+		end
+	end
+
+	return nil;
+end
+
+local function purchaseBestStuff()
+	pcall(function()
+		task.spawn(function()
+			local args = {
+				"Purchase",
+				{
+					Category = "Collector",
+					Type = "Honey Dipper"
+				}
+			}
+			ReplicatedStorage.Events.ItemPackageEvent:InvokeServer(unpack(args));
+
+			local args = {
+				"Purchase",
+				{
+					Category = "Accessory",
+					Type = "Canister"
+				}
+			}
+			ReplicatedStorage.Events.ItemPackageEvent:InvokeServer(unpack(args));
+		end)
+	end)
+end
+
+local function equipBestStuff()
+	pcall(function()
+		task.spawn(function()
+			local args = {
+				"Equip",
+				{
+					Category = "Accessory",
+					Type = "Canister"
+				}
+			}
+			ReplicatedStorage.Events.ItemPackageEvent:InvokeServer(unpack(args));
+
+
+			local args = {
+				"Equip",
+				{
+					Category = "Collector",
+					Type = "Honey Dipper"
+				}
+			}
+			ReplicatedStorage.Events.ItemPackageEvent:InvokeServer(unpack(args));
+
+		end)
+	end)
+end
+
+local function IsHiveAmountFull()
+	for _,hive in pairs(workspace.Honeycombs:GetChildren()) do
+		local cells = hive:FindFirstChild("Cells");
+		if not cells then return false; end
+		for _, cell in pairs(cells:GetChildren()) do
+			local cellType = cell:FindFirstChild("CellType");
+			if not cellType or cellType.Value == "Empty" or not cell:FindFirstChild("Backplate") then
+				return false;
+			end
+		end
+	end
+	return true;
+end
+
+local function GetAvailableRoyalJellyCell()
+	
+	local Cells = MyHive.Cells;
+	
+	for _,Cell in pairs(Cells:GetChildren()) do
+		if Cell:IsA("Model") and Cell:FindFirstChild("CellType") and Cell:FindFirstChild("Backplate") and Cell.CellType.Value == "BasicBee" then
+			return Cell;
+		end
+	end
+	
+	return nil;
+end
+
+local function cutstrings(str)
+	return tonumber((tostring(str):gsub("[^%d%.%-]", "")));
+end
+
+while task.wait(0.5) do
+
+	local BasicEggsOwned = v_u_5:Get({ "Eggs", "Basic" }) or 0;
+	
+	local RoyalJellyOwned = v_u_5:Get({ "Eggs", "RoyalJelly" }) or 0;
+
+	local HoneyAmount = LocalPlayer.CoreStats.Honey.Value;
+
+	if HoneyAmount <= MinimumHoneyAmount then
+		break
+	end
+	
+	local IsHiveFull = IsHiveAmountFull();
+	
+	task.spawn(function()
+		if not IsHiveFull then
+			pcall(function()
+				ReplicatedStorage.Events.ItemPackageEvent:InvokeServer(
+					"Purchase",
+					{
+						Type = "Basic",
+						Category = "Eggs",
+						Amount = 1
+					}
+				)
+				BasicEggsOwned = v_u_5:Get({"Eggs","Basic"}) or 0;
+			end)
+		end
+	end)
+
+	task.spawn(function()
+		purchaseBestStuff();
+	end)
+	task.spawn(function()
+		equipBestStuff();
+	end)	
+
+	if not IsHiveFull and BasicEggsOwned >= 1 then
+
+		for i = 1,BasicEggsOwned do
+
+			local availableCell = getAvailableCell();
+
+			if availableCell then
+
+				local args = {
+					availableCell.CellX.Value,
+					availableCell.CellY.Value,
+					"Basic",
+					1,
+					false
+				};
+				ReplicatedStorage.Events.ConstructHiveCellFromEgg:InvokeServer(unpack(args));
+
+			end
+
+			task.wait();
+		end
+
+	end
+	
+	if RoyalJellyOwned >= 1 then
+		
+		for i = 1,RoyalJellyOwned do
+			local AvailableJellyCell = GetAvailableRoyalJellyCell();
+
+			if AvailableJellyCell then
+				local args67 = {
+					AvailableJellyCell.CellX.Value,
+					AvailableJellyCell.CellY.Value,
+					"RoyalJelly",
+					1,
+					false
+				}
+				ReplicatedStorage.Events.ConstructHiveCellFromEgg:InvokeServer(unpack(args67));
+				task.wait();
+			end
+		end
+		
+	end
+	
+end
